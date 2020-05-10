@@ -42,7 +42,7 @@ void writeRaw(const char * filename, unsigned char * data, int length)
 	fclose(fp);
 }
 
-void writeImg(const char * filename, unsigned char * data, int width, int height, bool inv)
+void _writeImg(const char * filename, unsigned char * data, int width, int height, int mode, int thr)
 {
 	const char format_mark[] = "P5";
 
@@ -56,18 +56,45 @@ void writeImg(const char * filename, unsigned char * data, int width, int height
 	fprintf(fp, "%s\n%d %d\n%d\n", format_mark, width, height, 255);
 
 	int i = 0;
+	unsigned char value;
 	for (int x = 0; x < height; ++x)
 	{
 		for (int y = 0; y < width; ++y, ++i)
 		{
-			if (inv)
-				fputc((unsigned char)255-data[i], fp);
-			else
-				fputc(data[i], fp);
+			switch(mode)
+			{
+				case 0:
+					value = data[i];
+					break;
+				case 1:
+					value = (unsigned char)255-data[i];
+					break;
+				case 2:
+					if ((int)data[i] > thr)
+						value = (unsigned char)255;
+					else
+						value = (unsigned char)0;
+			}
+			fputc(value, fp);
 		}
 	}
 
 	fclose(fp);
+}
+
+void writeImg(const char * filename, unsigned char * data, int width, int height)
+{
+	_writeImg(filename, data, width, height, 0, 0);
+}
+
+void writeImgInv(const char * filename, unsigned char * data, int width, int height)
+{
+	_writeImg(filename, data, width, height, 1, 0);
+}
+
+void writeImgBin(const char * filename, unsigned char * data, int width, int height)
+{
+	_writeImg(filename, data, width, height, 2, 128);
 }
 
 void imgInfo(unsigned char * data, int length)
@@ -148,9 +175,10 @@ int main(int argc, char * argv[])
 	writeRaw("scans/raw.bin", data, transferred);
 
 	// The data can be separated to 5 images of size 114*57
-	writeImg("scans/114x285.pgm", data, 114, 285, false);
-	writeImg("scans/114x57.pgm", data, 114, 57, false);
-	writeImg("scans/114x57_inv.pgm", data, 114, 57, true);
+	writeImg("scans/114x285.pgm", data, 114, 285);
+	writeImg("scans/114x57.pgm", data, 114, 57);
+	writeImgInv("scans/114x57_inv.pgm", data, 114, 57);
+	writeImgBin("scans/114x57_bin.pgm", data, 114, 57);
 
 	imgInfo(data, 114*57);
 
