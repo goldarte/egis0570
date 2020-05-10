@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "misc.h"
 #include "init.h"
@@ -41,7 +42,7 @@ void writeRaw(const char * filename, unsigned char * data, int length)
 	fclose(fp);
 }
 
-void writeImg(const char * filename, unsigned char * data, int width, int height)
+void writeImg(const char * filename, unsigned char * data, int width, int height, bool inv)
 {
 	const char format_mark[] = "P5";
 
@@ -59,7 +60,10 @@ void writeImg(const char * filename, unsigned char * data, int width, int height
 	{
 		for (int y = 0; y < width; ++y, ++i)
 		{
-			fputc(data[i], fp);
+			if (inv)
+				fputc((unsigned char)255-data[i], fp);
+			else
+				fputc(data[i], fp);
 		}
 	}
 
@@ -124,34 +128,31 @@ int main(int argc, char * argv[])
 
 	for (int i = 0; i < initLen; ++i)
 	{
-		printf("Step %d: ", i+1);
+		//printf("Step %d: ", i+1);
 		if (libusb_bulk_transfer(handle, DEV_EPOUT, init[i], initPktSize, &transferred, 0) != 0)
 		{
-			printf("write %d bytes\n", transferred);
+			//printf("write %d bytes\n", transferred);
 			perror_exit("'Out' transfer error");
 		}
 
-		printf("write %d bytes, ", transferred);
+		//printf("write %d bytes, ", transferred);
 
 		if (libusb_bulk_transfer(handle, DEV_EPIN, data, length, &transferred, 0) != 0)
 		{
-			printf("read %d bytes\n", transferred);
+			//printf("read %d bytes\n", transferred);
 			perror_exit("'In' transfer error");
 		}
-		printf("read %d bytes\n", transferred);
+		//printf("read %d bytes\n", transferred);
 	}
 
 	writeRaw("scans/raw.bin", data, transferred);
 
 	// The data can be separated to 5 images of size 114*57
-	writeImg("scans/114x285.pgm", data, 114, 285);
-	writeImg("scans/114x57.pgm", data, 114, 57);
+	writeImg("scans/114x285.pgm", data, 114, 285, false);
+	writeImg("scans/114x57.pgm", data, 114, 57, false);
+	writeImg("scans/114x57_inv.pgm", data, 114, 57, true);
 
 	imgInfo(data, 114*57);
-
-	// 32512 - 114*285 = 22: Let's try to figure out is there any meaning in the rest of bytes. Seems that there is no regularity.
-	printDataRange(data, transferred, transferred-22, transferred);
-	printDataRange(data, transferred, 0, 22);
 
 	libusb_release_interface(handle, DEV_INTF);
 	libusb_attach_kernel_driver(handle, DEV_INTF);
